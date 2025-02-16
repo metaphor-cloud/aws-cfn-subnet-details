@@ -21,12 +21,29 @@ def send_response(event, context, response_status, response_data=None):
     http.request("PUT", response_url, body=response_body, headers=headers)
 
 
-def get_subnet_cidr_block(event):
-    subnet_id = event.get("ResourceProperties").get("SubnetId")
+def get_subnet_properties(event):
     ec2 = boto3.client("ec2")
-    subnet = ec2.describe_subnets(SubnetIds=[subnet_id])
-    cidr_block = subnet.get("Subnets")[0].get("CidrBlock")
-    return cidr_block
+    resource_properties = event.get("ResourceProperties")
+    subnet_id = resource_properties.get("SubnetId")
+    subnet_response = ec2.describe_subnets(SubnetIds=[subnet_id])
+    subnets = subnet_response.get("Subnets", [])
+    subnet = None
+    if subnets:
+        subnet = subnets[0]
+        route_table_response = ec2.describe_route_tables(
+            Filters=[{"Name": "association.subnet-id", "Values": [subnet_id]}]
+        )
+        route_tables = route_table_response.get("RouteTables", [])
+        main_route_table = None
+        for route_table in route_tables:
+            for association in route_table.get("Associations", []):
+                if association.get("Main"):
+                    main_route_table = route_table
+                    break
+            if main_route_table:
+                break
+        subnet["RouteTable"] = main_route_table
+    return subnet
 
 
 def handler(event, context):
@@ -35,9 +52,8 @@ def handler(event, context):
         if event.get("RequestType") == "Delete":
             send_response(event, context, "SUCCESS")
             return
-        cidr_block = get_subnet_cidr_block(event)
-        response_data = {"CidrBlock": cidr_block}
-        send_response(event, context, "SUCCESS", response_data)
+        subnet_properties = get_subnet_properties(event)
+        send_response(event, context, "SUCCESS", subnet_properties)
     except Exception as e:
         send_response(event, context, "FAILED")
         raise e
