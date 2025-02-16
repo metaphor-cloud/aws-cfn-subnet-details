@@ -42,7 +42,7 @@ def get_subnet_properties(event):
                     break
             if main_route_table:
                 break
-        subnet["RouteTable"] = main_route_table
+        subnet["RouteTable"] = main_route_table.get("RouteTableId")
     return subnet
 
 
