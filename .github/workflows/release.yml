@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY_ALIAS: metaphor
-  IMAGE_NAME: cfnsubnetdetails
+  IMAGE_NAME: aws-cfn-subnet-details
   DOCKERFILE_PATH: Dockerfile
 
 jobs:
